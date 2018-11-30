@@ -5,7 +5,6 @@
 #include "graphics.h"
 #include "speech.h"
 #include <stdlib.h>
-#include <time.h>
 
 // Functions in this file
 int get_action(GameInputs inputs);
@@ -14,6 +13,8 @@ void npcTalk(int ghost);
 void draw_game(int init);
 void init_maps();
 void init_npcs(int map);
+void update_npcs(int loop_cntr);
+int sign(int x);
 int main();
 
 /**
@@ -42,6 +43,15 @@ static Ghost ghosts[3];
 static int getGhost(int x, int y) {
     for (int i = 0; i < 3; i++) {
         if (ghosts[i].x == x && ghosts[i].y == y) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int getGhostP(int x, int y) {
+    for (int i = 0; i < 3; i++) {
+        if (ghosts[i].px == x && ghosts[i].py == y) {
             return i;
         }
     }
@@ -82,18 +92,23 @@ int get_action(GameInputs inputs)
         Player.isOmni = !Player.isOmni;
 
     Player.pdir = Player.dir;
-    if (inputs.ax < -0.2) {
-        Player.dir = 2;
-        return GO_LEFT;
-    } else if (inputs.ax > 0.2) {
-        Player.dir = 0;
-        return GO_RIGHT;
-    } else if (inputs.ay < -0.2) {
-        Player.dir = 1;
-        return GO_DOWN;
-    } else if (inputs.ay > 0.2) {
-        Player.dir = 3;
-        return GO_UP;
+
+    if (abs(inputs.ax) > abs(inputs.ay)) {
+         if (inputs.ax < -0.2) {
+            Player.dir = 2;
+            return GO_LEFT;
+        } else if (inputs.ax > 0.2) {
+            Player.dir = 0;
+            return GO_RIGHT;
+        }
+    } else {
+        if (inputs.ay < -0.2) {
+            Player.dir = 1;
+            return GO_DOWN;
+        } else if (inputs.ay > 0.2) {
+            Player.dir = 3;
+            return GO_UP;
+        } 
     }
     return NO_ACTION;
 }
@@ -267,16 +282,19 @@ void draw_game(int init)
             }
             else if (x >= 0 && y >= 0 && x < map_width() && y < map_height()) // Current (i,j) in the map
             {
-                int ghost = getGhost(x, y);
-                if (ghost >= 0) {
+                int ghost;
+                if ((ghost = getGhost(x, y)) >= 0) {
                     if (init || x != px || y != py
                         || ghosts[ghost].x != ghosts[ghost].px || ghosts[ghost].y != ghosts[ghost].py) {
                         draw_ghost(u, v, ghosts[ghost].color);
                     }
                     continue;
-                }
-                ghost = getGhost(px, py);
-                if (ghost >= 0 && (init || x != px || y != py
+                } else if ((ghost = getGhost(px, py)) >= 0 && (init || x != px || y != py)) {
+                    draw = draw_nothing;
+                } else if ((ghost = getGhostP(x, y)) >= 0 && (init
+                            || ghosts[ghost].x != ghosts[ghost].px || ghosts[ghost].y != ghosts[ghost].py)) {
+                    draw = draw_nothing;
+                } else if ((ghost = getGhostP(px, py)) >= 0 && (init || x != px || y != py
                             || ghosts[ghost].x != ghosts[ghost].px || ghosts[ghost].y != ghosts[ghost].py)) {
                     draw = draw_nothing;
                 }
@@ -321,7 +339,7 @@ void draw_game(int init)
 void init_maps()
 {
     // "Random" power dots
-    Map* map = set_active_map(0);
+    set_active_map(0);
     //for(int i = 1; i < map_area(); i += rand() % 50 + 30)
     //{
     //    add_tree(i % map_width(), (i / map_width()) % map_height());
@@ -343,7 +361,7 @@ void init_maps()
     pc.printf("Map 0:\r\n");
     print_map();
 
-    map = set_active_map(1);
+    set_active_map(1);
     add_wall(0, 0, HORIZONTAL, 1);
     //add_wall(0,              0,              HORIZONTAL, map_width());
     //add_wall(0,              map_height()-1, HORIZONTAL, map_width());
@@ -434,6 +452,41 @@ void init_npcs(int map) {
     }
 }
 
+void update_npcs(int loop_cntr) {
+    if (loop_cntr)
+        return;
+    int dx, dy = 0;
+    int newx, newy = 0;
+    for (int i = 0; i < 3; i++) {
+        ghosts[i].px = ghosts[i].x;
+        ghosts[i].py = ghosts[i].y;
+        dx = Player.x - ghosts[i].x;
+        dy = Player.y - ghosts[i].y;
+        newx = ghosts[i].x + sign(dx);
+        if (get_here(newx, ghosts[i].y) || getGhost(newx, ghosts[i].y) >= 0)
+            newx = -1;
+        newy = ghosts[i].y + sign(dy);
+        if (get_here(ghosts[i].x, newy) || getGhost(ghosts[i].x, newy) >= 0)
+            newy = -1;
+
+        if (newx >= 0 && newy < 0)
+            ghosts[i].x = newx;
+        else if (newx < 0 && newy >= 0)
+            ghosts[i].y = newy;
+        else if (newx >= 0 && newy >= 0) {
+            if (abs(dx) > abs(dy)) {
+                ghosts[i].x = newx;
+            } else {
+                ghosts[i].y = newy;
+            }
+        }
+    }
+}
+
+int sign(int x) {
+    return (x > 0) - (x < 0);
+}
+
 /**
  * Program entry point! This is where it all begins.
  * This function orchestrates all the parts of the game. Most of your
@@ -445,21 +498,21 @@ int main()
     // First things first: initialize hardware
     ASSERT_P(hardware_init() == ERROR_NONE, "Hardware init failed!");
 
-    //srand(time(NULL));
-
     // Initialize the maps
     maps_init();
     init_maps();
     init_sprites();
 
     // Initialize game state
-    set_active_map(0);
-    init_npcs(0);
+    set_active_map(1);
+    init_npcs(1);
     Player.x = Player.y = 5;
     Player.questState = Player.dir = Player.pdir = Player.isOmni = 0;
 
     // Initial drawing
     draw_game(true);
+
+    int loop_cntr = 0;
 
     // Main game loop
     while(1)
@@ -476,9 +529,15 @@ int main()
         GameInputs inputs = read_inputs();
         int action = get_action(inputs);
         int result = update_game(action);
+        if (get_active_map_index() == 1)
+            update_npcs(loop_cntr);
         draw_game(result);
         if (result == GAME_OVER)
             break;
+
+        loop_cntr++;
+        if (loop_cntr > 2)
+            loop_cntr = 0;
 
         // 5. Frame delay
         t.stop();
