@@ -75,6 +75,9 @@ int ghost_msg_5_length = 4;
 const char* ghost_msg_6[] = {"You already won", "the game! Just", "go to the exit."};
 int ghost_msg_6_length = 3;
 
+const char* door_msg[] = {"You are not", "worthy of the", "prize cherry yet!"};
+int door_msg_length = 3;
+
 /**
  * Given the game inputs, determine what kind of update needs to happen.
  * Possible return values are defined below.
@@ -219,8 +222,10 @@ int update_game(int action)
             } else if (item && item->type == DOOR) {
                 if (Player.questState == 3) {
                     map_erase(itemX, itemY);
-                    result = FULL_DRAW;
+                } else {
+                    long_speech(door_msg, door_msg_length);
                 }
+                result = FULL_DRAW;
             } else if (get_active_map_index() == 0) {
                 int ghost = -1;
                 int tmp;
@@ -260,7 +265,7 @@ void npcTalk(int ghost) {
     if (ghost == 0 || ghost == 1)
         long_speech(ghost_msg_1, ghost_msg_1_length);
     else if (ghost == 2) {
-        if (Player.questState == 0 && Player.power < 1) { // TODO: Should be 10
+        if (Player.questState == 0 && Player.power < 10) {
             long_speech(ghost_msg_2, ghost_msg_2_length);
         } else if (Player.questState == 0) {
             Player.questState = 1;
@@ -271,7 +276,6 @@ void npcTalk(int ghost) {
         } else if (Player.questState == 2) {
             Player.questState = 3;
             long_speech(ghost_msg_5, ghost_msg_5_length);
-            add_prize(46, 2);
             add_key_to_player();
         } else if (Player.questState == 3) {
             long_speech(ghost_msg_6, ghost_msg_6_length);
@@ -401,6 +405,7 @@ void init_maps()
     add_wall(43, 6, HORIZONTAL, 3);
     add_wall(47, 6, HORIZONTAL, 3);
     add_door(46, 6);
+    add_prize(46, 2);
     pc.printf("Map 0:\r\n");
     print_map();
 
