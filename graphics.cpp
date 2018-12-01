@@ -88,6 +88,19 @@ static int ghost_sprite_aqua[121] = {
 0x00ffff, 0x00ffff, 0x00ffff, 0x000000, 0x00ffff, 0x00ffff, 0x00ffff, 0x000000, 0x00ffff, 0x00ffff, 0x00ffff,
 0x000000, 0x00ffff, 0x000000, 0x000000, 0x000000, 0x00ffff, 0x000000, 0x000000, 0x000000, 0x00ffff, 0x000000
 };
+static int ghost_sprite_blue[121] = {
+0x000000, 0x000000, 0x000000, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x000000, 0x000000, 0x000000,
+0x000000, 0x000000, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x000000, 0x000000,
+0x000000, 0x0000ff, 0x0000ff, 0x000000, 0x0000ff, 0x0000ff, 0x0000ff, 0x000000, 0x0000ff, 0x0000ff, 0x000000,
+0x000000, 0x0000ff, 0x000000, 0x000000, 0x000000, 0x0000ff, 0x000000, 0x000000, 0x000000, 0x0000ff, 0x000000,
+0x0000ff, 0x0000ff, 0xffffff, 0x000000, 0x000000, 0x0000ff, 0xffffff, 0x000000, 0x000000, 0x0000ff, 0x0000ff,
+0x0000ff, 0x0000ff, 0x0000ff, 0x000000, 0x0000ff, 0x0000ff, 0x0000ff, 0x000000, 0x0000ff, 0x0000ff, 0x0000ff,
+0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff,
+0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff,
+0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff,
+0x0000ff, 0x0000ff, 0x0000ff, 0x000000, 0x0000ff, 0x0000ff, 0x0000ff, 0x000000, 0x0000ff, 0x0000ff, 0x0000ff,
+0x000000, 0x0000ff, 0x000000, 0x000000, 0x000000, 0x0000ff, 0x000000, 0x000000, 0x000000, 0x0000ff, 0x000000
+};
 
 static int portal_sprite[121] = {
 0x000000, 0x000000, 0x000000, 0x2008db, 0x2008db, 0x2008db, 0x2008db, 0x2008db, 0x000000, 0x000000, 0x000000,
@@ -121,8 +134,12 @@ void draw_player(int u, int v, int key, int dir)
     }
 }
 
-void draw_ghost(int u, int v, int color)
+void draw_ghost(int u, int v, int color, int fleeing)
 {
+    if (fleeing) {
+        uLCD.BLIT(u, v, 11, 11, ghost_sprite_blue);
+        return;
+    }
     switch (color) {
         case 0:
             uLCD.BLIT(u, v, 11, 11, ghost_sprite_red);
@@ -222,7 +239,7 @@ void draw_portal(int u, int v)
     uLCD.BLIT(u, v, 11, 11, portal_sprite);
 }
 
-void draw_upper_status(int x, int y, int isOmni, int power)
+void draw_upper_status(int x, int y, int isOmni, int map, int power, int fleeing, int questState)
 {
     // Draw bottom border of status bar
     uLCD.line(0, 9, 127, 9, BLUE);
@@ -238,7 +255,18 @@ void draw_upper_status(int x, int y, int isOmni, int power)
     uLCD.color(WHITE);
     uLCD.set_font(FONT_7X8);
     uLCD.text_mode(TRANSPARENT);
-    uLCD.printf("(%D,%D) Power:%D", x, y, power);
+    uLCD.text_width(1);
+    uLCD.text_height(1);
+    if (map == 0)
+        uLCD.printf("(%D,%D) Power:%D", x, y, power);
+    else if (map == 1) {
+        if (questState == 2)
+            uLCD.printf("(%D,%D) EXIT", x, y);
+        else if (fleeing)
+            uLCD.printf("(%D,%D) CHASE %Ds", x, y, fleeing / 10);
+        else
+            uLCD.printf("(%D,%D) RUN", x, y);
+    }
 }
 
 void draw_lower_status(int map)
@@ -253,6 +281,8 @@ void draw_lower_status(int map)
     uLCD.color(WHITE);
     uLCD.set_font(FONT_7X8);
     uLCD.text_mode(TRANSPARENT);
+    uLCD.text_width(1);
+    uLCD.text_height(1);
     uLCD.printf("%S Map", map ? "Quest" : "Main");
 }
 
@@ -264,3 +294,25 @@ void draw_border()
     uLCD.filled_rectangle(124,  14, 127, 117, YELLOW); // Right
 }
 
+void draw_dead() {
+    uLCD.text_width(2);
+    uLCD.text_height(2);
+    uLCD.color(RED);
+    uLCD.text_mode(TRANSPARENT);
+    uLCD.locate(3,2);
+    uLCD.printf("YOU");
+    uLCD.locate(3,3);
+    uLCD.printf("DIED");
+    uLCD.text_width(1);
+    uLCD.text_height(1);
+    uLCD.locate(2,9);
+    uLCD.printf("RESPAWNING IN");
+    uLCD.text_mode(OPAQUE);
+    uLCD.text_width(2);
+    uLCD.text_height(2);
+    for (int i = 3; i > 0; i--) {
+        uLCD.locate(4,5);
+        uLCD.printf("%D", i);
+        wait_ms(1000);
+    }
+}

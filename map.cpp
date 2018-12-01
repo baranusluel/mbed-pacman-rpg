@@ -135,9 +135,11 @@ MapItem* get_here(int x, int y)
     return (MapItem*) getItem(get_active_map()->items, XY_KEY(x, y));
 }
 
-
 void map_erase(int x, int y)
 {
+    MapItem* item = get_here(x, y);
+    if (item && item->data)
+        free(item->data);
     deleteItem(get_active_map()->items, XY_KEY(x, y));
 }
 

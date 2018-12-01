@@ -11,7 +11,7 @@ void flip_ud(int *sprite, int *out);
  */
 void draw_player(int u, int v, int key, int dir);
 
-void draw_ghost(int u, int v, int color);
+void draw_ghost(int u, int v, int color, int fleeing);
 
 /**
  * Takes a string image and draws it to the screen. The string is 121 characters
@@ -41,7 +41,7 @@ void draw_portal(int u, int v);
 /**
  * Draw the upper status bar.
  */
-void draw_upper_status(int x, int y, int isOmni, int power);
+void draw_upper_status(int x, int y, int isOmni, int map, int power, int fleeing, int questState);
 
 /**
  * Draw the lower status bar.
@@ -52,5 +52,7 @@ void draw_lower_status(int map);
  * Draw the border for the map.
  */
 void draw_border();
+
+void draw_dead();
 
 #endif // GRAPHICS_H

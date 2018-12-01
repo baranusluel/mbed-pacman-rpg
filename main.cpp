@@ -12,8 +12,10 @@ int update_game(int action);
 void npcTalk(int ghost);
 void draw_game(int init);
 void init_maps();
+void init_powerups();
 void init_npcs(int map);
-void update_npcs(int loop_cntr);
+void update_npcs();
+void handle_npc_collision(int ghost);
 int sign(int x);
 int main();
 
@@ -37,12 +39,14 @@ struct Ghost {
     int x, y;
     int px, py;
     int color;
+    int dead;
 };
 static Ghost ghosts[3];
+static int ghosts_fleeing;
 
 static int getGhost(int x, int y) {
     for (int i = 0; i < 3; i++) {
-        if (ghosts[i].x == x && ghosts[i].y == y) {
+        if (!ghosts[i].dead && ghosts[i].x == x && ghosts[i].y == y) {
             return i;
         }
     }
@@ -51,7 +55,7 @@ static int getGhost(int x, int y) {
 
 static int getGhostP(int x, int y) {
     for (int i = 0; i < 3; i++) {
-        if (ghosts[i].px == x && ghosts[i].py == y) {
+        if (!ghosts[i].dead && ghosts[i].px == x && ghosts[i].py == y) {
             return i;
         }
     }
@@ -66,7 +70,7 @@ const char* ghost_msg_3[] = {"Welcome back!", "I am opening", "a portal for you.
 int ghost_msg_3_length = 6;
 const char* ghost_msg_4[] = {"The portal is", "already open!"};
 int ghost_msg_4_length = 2;
-const char* ghost_msg_5[] = {"Congratulations", "you won!", "Here's a key", "go find the exit."};
+const char* ghost_msg_5[] = {"Congratulations,", "you won!", "Here's a key,", "go get your prize."};
 int ghost_msg_5_length = 4;
 const char* ghost_msg_6[] = {"You already have", "the key! Just", "go to the exit."};
 int ghost_msg_6_length = 3;
@@ -145,8 +149,10 @@ int update_game(int action)
             item = get_north(Player.x, Player.y);
             if (item && !item->walkable && !Player.isOmni)
                 break;
-            if (getGhost(Player.x, Player.y-1) >= 0 && !Player.isOmni)
+            if (getGhost(Player.x, Player.y-1) >= 0 && !Player.isOmni) {
+                handle_npc_collision(getGhost(Player.x, Player.y-1));
                 break;
+            }
             Player.y--;
             break;
         }
@@ -155,8 +161,10 @@ int update_game(int action)
             item = get_west(Player.x, Player.y);
             if (item && !item->walkable && !Player.isOmni)
                 break;
-            if (getGhost(Player.x-1, Player.y) >= 0 && !Player.isOmni)
+            if (getGhost(Player.x-1, Player.y) >= 0 && !Player.isOmni) {
+                handle_npc_collision(getGhost(Player.x-1, Player.y));
                 break;
+            }
             Player.x--;
             break;
         }
@@ -165,8 +173,10 @@ int update_game(int action)
             item = get_south(Player.x, Player.y);
             if (item && !item->walkable && !Player.isOmni)
                 break;
-            if (getGhost(Player.x, Player.y+1) >= 0 && !Player.isOmni)
+            if (getGhost(Player.x, Player.y+1) >= 0 && !Player.isOmni) {
+                handle_npc_collision(getGhost(Player.x, Player.y+1));
                 break;
+            }
             Player.y++;
             break;
         }
@@ -175,8 +185,10 @@ int update_game(int action)
             item = get_east(Player.x, Player.y);
             if (item && !item->walkable && !Player.isOmni)
                 break;
-            if (getGhost(Player.x+1, Player.y) >= 0 && !Player.isOmni)
+            if (getGhost(Player.x+1, Player.y) >= 0 && !Player.isOmni) {
+                handle_npc_collision(getGhost(Player.x+1, Player.y));
                 break;
+            }
             Player.x++;
             break;
         }
@@ -190,7 +202,7 @@ int update_game(int action)
                 Player.x = data->tx;
                 Player.y = data->ty;
                 result = FULL_DRAW;
-            } else {
+            } else if (get_active_map_index() == 0) {
                 int ghost = -1;
                 int tmp;
                 tmp = getGhost(Player.x+1, Player.y);
@@ -215,6 +227,9 @@ int update_game(int action)
     if (item && item->type == DOT) {
         Player.power++;
         map_erase(Player.x, Player.y);
+        if (get_active_map_index() == 1) {
+            ghosts_fleeing = 100;
+        }
         result = FULL_DRAW;
     }
     return result;
@@ -224,7 +239,7 @@ void npcTalk(int ghost) {
     if (ghost == 0 || ghost == 1)
         long_speech(ghost_msg_1, ghost_msg_1_length);
     else if (ghost == 2) {
-        if (Player.questState == 0 && Player.power < 1) { // TODO: Temporarily 1, should be 10
+        if (Player.questState == 0 && Player.power < 10) {
             long_speech(ghost_msg_2, ghost_msg_2_length);
         } else if (Player.questState == 0) {
             Player.questState = 1;
@@ -286,7 +301,7 @@ void draw_game(int init)
                 if ((ghost = getGhost(x, y)) >= 0) {
                     if (init || x != px || y != py
                         || ghosts[ghost].x != ghosts[ghost].px || ghosts[ghost].y != ghosts[ghost].py) {
-                        draw_ghost(u, v, ghosts[ghost].color);
+                        draw_ghost(u, v, ghosts[ghost].color, ghosts_fleeing);
                     }
                     continue;
                 } else if ((ghost = getGhost(px, py)) >= 0 && (init || x != px || y != py)) {
@@ -325,8 +340,9 @@ void draw_game(int init)
 
     // Draw status bars
     if (Player.x != Player.px || Player.y != Player.py
-        || Player.isOmni != Player.pisOmni || Player.power != Player.ppower)
-        draw_upper_status(Player.x, Player.y, Player.isOmni, Player.power);
+        || Player.isOmni != Player.pisOmni || Player.power != Player.ppower
+        || ghosts_fleeing % 10 == 9)
+        draw_upper_status(Player.x, Player.y, Player.isOmni, get_active_map_index(), Player.power, ghosts_fleeing, Player.questState);
     if (init)
         draw_lower_status(get_active_map_index());
 }
@@ -414,15 +430,29 @@ void init_maps()
     add_wall(4, 11, HORIZONTAL, 3);
     add_wall(16, 11, HORIZONTAL, 3);
 
-    add_portal(21, 11, 0, 38, 47);
+    init_powerups();
+
     pc.printf("Map 1:\r\n");
     print_map();
+}
+
+void init_powerups() {
+    map_erase(3, 21);
+    add_dot(3, 21);
+    map_erase(19, 21);
+    add_dot(19, 21);
+    map_erase(19, 1);
+    add_dot(19, 1);
 }
 
 void init_npcs(int map) {
     ghosts[0].color = 0;
     ghosts[1].color = 1;
     ghosts[2].color = 2;
+    ghosts[0].dead = 0;
+    ghosts[1].dead = 0;
+    ghosts[2].dead = 0;
+    ghosts_fleeing = 0;
     if (map == 0) {
         ghosts[0].x = 7;
         ghosts[0].y = 6;
@@ -452,16 +482,18 @@ void init_npcs(int map) {
     }
 }
 
-void update_npcs(int loop_cntr) {
-    if (loop_cntr)
-        return;
+void update_npcs() {
     int dx, dy = 0;
     int newx, newy = 0;
     for (int i = 0; i < 3; i++) {
+        if (ghosts[i].dead)
+            continue;
         ghosts[i].px = ghosts[i].x;
         ghosts[i].py = ghosts[i].y;
         dx = Player.x - ghosts[i].x;
+        dx = ghosts_fleeing ? -dx : dx;
         dy = Player.y - ghosts[i].y;
+        dy = ghosts_fleeing ? -dy : dy;
         newx = ghosts[i].x + sign(dx);
         if (get_here(newx, ghosts[i].y) || getGhost(newx, ghosts[i].y) >= 0)
             newx = -1;
@@ -480,7 +512,34 @@ void update_npcs(int loop_cntr) {
                 ghosts[i].y = newy;
             }
         }
+        
+        if (ghosts[i].x == Player.x && ghosts[i].y == Player.y) {
+            handle_npc_collision(i);
+        }
     }
+}
+
+void handle_npc_collision(int ghost) {
+    if (get_active_map_index() != 1)
+        return;
+    if (!ghosts_fleeing) {
+        draw_dead();
+        init_npcs(1);
+        Player.x = Player.y = 5;
+        init_powerups();
+    } else {
+        ghosts[ghost].dead = 1;
+        int anyAlive = 0;
+        for (int i = 0; i < 3; i++) {
+            if (!ghosts[i].dead)
+                anyAlive = 1;
+        }
+        if (!anyAlive) {
+            add_portal(21, 11, 0, 38, 47);
+            Player.questState = 2;
+        }
+    }
+    draw_game(1);
 }
 
 int sign(int x) {
@@ -504,8 +563,8 @@ int main()
     init_sprites();
 
     // Initialize game state
-    set_active_map(1);
-    init_npcs(1);
+    set_active_map(0);
+    init_npcs(0);
     Player.x = Player.y = 5;
     Player.questState = Player.dir = Player.pdir = Player.isOmni = 0;
 
@@ -529,8 +588,12 @@ int main()
         GameInputs inputs = read_inputs();
         int action = get_action(inputs);
         int result = update_game(action);
-        if (get_active_map_index() == 1)
-            update_npcs(loop_cntr);
+
+        if (ghosts_fleeing)
+            ghosts_fleeing--;
+        if (get_active_map_index() == 1 && loop_cntr == 0)
+            update_npcs();
+
         draw_game(result);
         if (result == GAME_OVER)
             break;
