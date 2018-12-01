@@ -70,9 +70,9 @@ const char* ghost_msg_3[] = {"Welcome back!", "I am opening", "a portal for you.
 int ghost_msg_3_length = 6;
 const char* ghost_msg_4[] = {"The portal is", "already open!"};
 int ghost_msg_4_length = 2;
-const char* ghost_msg_5[] = {"Congratulations,", "you won!", "Here's a key,", "go get your prize."};
+const char* ghost_msg_5[] = {"Congratulations,", "you won!", "You can now", "get your prize."};
 int ghost_msg_5_length = 4;
-const char* ghost_msg_6[] = {"You already have", "the key! Just", "go to the exit."};
+const char* ghost_msg_6[] = {"You already won", "the game! Just", "go to the exit."};
 int ghost_msg_6_length = 3;
 
 /**
@@ -139,6 +139,7 @@ int update_game(int action)
     Player.ppower = Player.power;
 
     MapItem* item;
+    int itemX, itemY;
 
     // Do different things based on the each action.
     // You can define functions like "go_up()" that get called for each case.
@@ -194,7 +195,20 @@ int update_game(int action)
         }
         case ACTION_BUTTON:
         {
-            item = get_here(Player.x, Player.y);
+            item = get_north(Player.x, Player.y);
+            itemX = Player.x; itemY = Player.y - 1;
+            if (!item || item->type == WALL) {
+                item = get_south(Player.x, Player.y);
+                itemX = Player.x; itemY = Player.y + 1;
+            }
+            if (!item || item->type == WALL) {
+                item = get_west(Player.x, Player.y);
+                itemX = Player.x - 1; itemY = Player.y;
+            }
+            if (!item || item->type == WALL) {
+                item = get_east(Player.x, Player.y);
+                itemX = Player.x + 1; itemY = Player.y;
+            }
             if (item && item->type == PORTAL) {
                 PortalData* data = (PortalData*)(item->data);
                 set_active_map(data->tm);
@@ -202,6 +216,11 @@ int update_game(int action)
                 Player.x = data->tx;
                 Player.y = data->ty;
                 result = FULL_DRAW;
+            } else if (item && item->type == DOOR) {
+                if (Player.questState == 3) {
+                    map_erase(itemX, itemY);
+                    result = FULL_DRAW;
+                }
             } else if (get_active_map_index() == 0) {
                 int ghost = -1;
                 int tmp;
@@ -231,6 +250,8 @@ int update_game(int action)
             ghosts_fleeing = 100;
         }
         result = FULL_DRAW;
+    } else if (item && item->type == PRIZE) {
+        result = GAME_OVER;
     }
     return result;
 }
@@ -239,7 +260,7 @@ void npcTalk(int ghost) {
     if (ghost == 0 || ghost == 1)
         long_speech(ghost_msg_1, ghost_msg_1_length);
     else if (ghost == 2) {
-        if (Player.questState == 0 && Player.power < 10) {
+        if (Player.questState == 0 && Player.power < 1) { // TODO: Should be 10
             long_speech(ghost_msg_2, ghost_msg_2_length);
         } else if (Player.questState == 0) {
             Player.questState = 1;
@@ -250,6 +271,8 @@ void npcTalk(int ghost) {
         } else if (Player.questState == 2) {
             Player.questState = 3;
             long_speech(ghost_msg_5, ghost_msg_5_length);
+            add_prize(46, 2);
+            add_key_to_player();
         } else if (Player.questState == 3) {
             long_speech(ghost_msg_6, ghost_msg_6_length);
         }
@@ -374,6 +397,10 @@ void init_maps()
     //add_wall(0,              map_height()-1, HORIZONTAL, map_width());
     //add_wall(0,              0,              VERTICAL,   map_height());
     //add_wall(map_width()-1,  0,              VERTICAL,   map_height());
+    add_wall(43, 1, VERTICAL, 5);
+    add_wall(43, 6, HORIZONTAL, 3);
+    add_wall(47, 6, HORIZONTAL, 3);
+    add_door(46, 6);
     pc.printf("Map 0:\r\n");
     print_map();
 
@@ -390,10 +417,12 @@ void init_maps()
     add_wall(20, 10, HORIZONTAL, 2);
     add_wall(20, 12, HORIZONTAL, 2);
 
-    add_wall(8, 4, HORIZONTAL, 7);
-    add_wall(8, 18, HORIZONTAL, 7);
-    add_wall(11, 5, VERTICAL, 3);
-    add_wall(11, 15, VERTICAL, 3);
+    add_wall(8, 4, HORIZONTAL, 2);
+    add_wall(13, 4, HORIZONTAL, 2);
+    add_wall(8, 18, HORIZONTAL, 2);
+    add_wall(13, 18, HORIZONTAL, 2);
+    add_wall(11, 4, VERTICAL, 4);
+    add_wall(11, 15, VERTICAL, 4);
 
     add_wall(2, 2, HORIZONTAL, 3);
     add_wall(6, 2, HORIZONTAL, 4);
@@ -405,13 +434,13 @@ void init_maps()
     add_wall(18, 20, HORIZONTAL, 3);
 
     add_wall(6, 4, VERTICAL, 6);
-    add_wall(7, 6, HORIZONTAL, 3);
+    add_wall(8, 6, HORIZONTAL, 2);
     add_wall(16, 4, VERTICAL, 6);
-    add_wall(13, 6, HORIZONTAL, 3);
+    add_wall(13, 6, HORIZONTAL, 2);
     add_wall(6, 13, VERTICAL, 6);
-    add_wall(7, 16, HORIZONTAL, 3);
+    add_wall(8, 16, HORIZONTAL, 2);
     add_wall(16, 13, VERTICAL, 6);
-    add_wall(13, 16, HORIZONTAL, 3);
+    add_wall(13, 16, HORIZONTAL, 2);
 
     add_wall(3, 4, VERTICAL, 3);
     add_wall(3, 8, VERTICAL, 2);
@@ -437,11 +466,8 @@ void init_maps()
 }
 
 void init_powerups() {
-    map_erase(3, 21);
     add_dot(3, 21);
-    map_erase(19, 21);
     add_dot(19, 21);
-    map_erase(19, 1);
     add_dot(19, 1);
 }
 
@@ -607,4 +633,5 @@ int main()
         int dt = t.read_ms();
         if (dt < 100) wait_ms(100 - dt); // Could we set frame time shorter than 100 ms?
     }
+    draw_game_over();
 }

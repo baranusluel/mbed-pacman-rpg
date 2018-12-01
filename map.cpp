@@ -82,7 +82,7 @@ Map* set_active_map(int m)
 void print_map()
 {
     // As you add more types, you'll need to add more items to this array.
-    char lookup[] = {'W', 'D', 'T', 'P'};
+    char lookup[] = {'W', 'O', '.', 'X', 'p', 'D'};
     for(int y = 0; y < map_height(); y++)
     {
         for (int x = 0; x < map_width(); x++)
@@ -193,7 +193,7 @@ void add_portal(int x, int y, int tm, int tx, int ty)
         pc.printf("OUT OF MEMORY");
     w1->type = PORTAL;
     w1->draw = draw_portal;
-    w1->walkable = true;
+    w1->walkable = false;
     PortalData* w2 = (PortalData*) malloc(sizeof(PortalData));
     if (!w2)
         pc.printf("OUT OF MEMORY");
@@ -201,6 +201,32 @@ void add_portal(int x, int y, int tm, int tx, int ty)
     w2->tx = tx;
     w2->ty = ty;
     w1->data = w2;
+    void* val = insertItem(get_active_map()->items, XY_KEY(x, y), w1);
+    if (val) free(val); // If something was already there, free it
+}
+
+void add_prize(int x, int y)
+{
+    MapItem* w1 = (MapItem*) malloc(sizeof(MapItem));
+    if (!w1)
+        pc.printf("OUT OF MEMORY");
+    w1->type = PRIZE;
+    w1->draw = draw_prize;
+    w1->walkable = true;
+    w1->data = NULL;
+    void* val = insertItem(get_active_map()->items, XY_KEY(x, y), w1);
+    if (val) free(val); // If something was already there, free it
+}
+
+void add_door(int x, int y)
+{
+    MapItem* w1 = (MapItem*) malloc(sizeof(MapItem));
+    if (!w1)
+        pc.printf("OUT OF MEMORY");
+    w1->type = DOOR;
+    w1->draw = draw_door;
+    w1->walkable = false;
+    w1->data = NULL;
     void* val = insertItem(get_active_map()->items, XY_KEY(x, y), w1);
     if (val) free(val); // If something was already there, free it
 }

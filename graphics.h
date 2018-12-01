@@ -2,9 +2,11 @@
 #define GRAPHICS_H
 
 void init_sprites();
+void add_key_to_player();
 void transpose(int *sprite, int *out);
 void flip_lr(int *sprite, int *out);
 void flip_ud(int *sprite, int *out);
+void copy(int *sprite, int *out);
 
 /**
  * Draws the player. This depends on the player state, so it is not a DrawFunc.
@@ -37,6 +39,8 @@ void draw_wall(int u, int v);
 void draw_dot(int u, int v);
 void draw_tree(int u, int v);
 void draw_portal(int u, int v);
+void draw_prize(int u, int v);
+void draw_door(int u, int v);
 
 /**
  * Draw the upper status bar.
@@ -54,5 +58,6 @@ void draw_lower_status(int map);
 void draw_border();
 
 void draw_dead();
+void draw_game_over();
 
 #endif // GRAPHICS_H

@@ -57,6 +57,8 @@ typedef struct {
 #define DOT     1
 #define TREE    2
 #define PORTAL  3
+#define PRIZE   4
+#define DOOR    5
 
 /**
  * Initializes the internal structures for all maps. This does not populate
@@ -155,5 +157,7 @@ void add_wall(int x, int y, int dir, int len);
 void add_dot(int x, int y);
 void add_tree(int x, int y);
 void add_portal(int x, int y, int tm, int tx, int ty);
+void add_prize(int x, int y);
+void add_door(int x, int y);
 
 #endif //MAP_H
